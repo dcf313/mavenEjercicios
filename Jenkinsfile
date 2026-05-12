@@ -10,14 +10,14 @@ pipeline {
     stages {
         stage('Git fetch') {
             steps {
-                git branch: 'main', url: 'https://github.com/ualhmis/MavenEjercicios'
+                git branch: 'main', url: 'https://github.com/dcf313/mavenEjercicios'
             }
         }
 
         stage('Compile, Test, Package') {
             steps {
                 // Ejecuta el ciclo de vida completo hasta package
-                sh "mvn -f sesion07Maven/pom.xml clean package"
+                sh "mvn -f mavenEjercicios/pom.xml clean package"
             }
             post {
                 success {
@@ -43,12 +43,12 @@ pipeline {
         
             stage ('Documentation') {
       steps {
-	    sh "mvn -f sesion07Maven/pom.xml javadoc:javadoc javadoc:aggregate"
+	    sh "mvn -f mavenEjercicios/pom.xml javadoc:javadoc javadoc:aggregate"
       }
       post{
         success {
-          step $class: 'JavadocArchiver', javadocDir: 'sesion07Maven/target/site/apidocs', keepAll: false
-          publishHTML(target: [reportName: 'Maven Site', reportDir: 'sesion07Maven/target/site', reportFiles: 'index.html', keepAll: false])
+          step $class: 'JavadocArchiver', javadocDir: 'mavenEjercicios/target/site/apidocs', keepAll: false
+          publishHTML(target: [reportName: 'Maven Site', reportDir: 'mavenEjercicios/target/site', reportFiles: 'index.html', keepAll: false])
         }
       }
     }
@@ -56,7 +56,7 @@ pipeline {
         stage('Analysis') {
             steps {
                 // Genera reportes de Checkstyle y el sitio de Maven
-                sh "mvn -f sesion07Maven/pom.xml site -Ddependency-check.skip=true"
+                sh "mvn -f mavenEjercicios/pom.xml site -Ddependency-check.skip=true"
             }
             post {
                 success {
