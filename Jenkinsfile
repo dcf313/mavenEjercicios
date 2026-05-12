@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     tools {
-        // Configuraciones confirmadas para tu instancia de Jenkins
         maven "maven-Default"
         jdk "Java-21"
     }
@@ -14,58 +13,53 @@ pipeline {
             }
         }
 
-        stage('Compile, Test, Package') {
+        stage('Build & Test') {
             steps {
-                // Ejecuta el ciclo de vida completo hasta package
+                // Generamos el paquete y el binario de cobertura (jacoco.exec)
                 sh "mvn -f pom.xml clean package"
             }
             post {
                 success {
-                    // Publica resultados de tests unitarios
                     junit '**/target/surefire-reports/TEST-*.xml'
-                    
-                    // Guarda el archivo JAR generado
                     archiveArtifacts '**/target/*.jar'
                     
-                    // Genera y publica el informe de cobertura JaCoCo
+                    // Publica la gráfica de cobertura básica desde el .exec
                     jacoco(
                         execPattern: '**/target/jacoco.exec',
                         classPattern: '**/target/classes',
                         sourcePattern: '**/src/main/java',
                         exclusionPattern: '**/test/'
                     )
-                    
-                    // Adaptador para el plugin de "Coverage" (tendencias modernas)
-                    publishCoverage adapters: [jacocoAdapter('**/target/site/jacoco/jacoco.xml')]
                 }
             }
         }
-        
-            stage ('Documentation') {
-      steps {
-	    sh "mvn -f pom.xml javadoc:javadoc javadoc:aggregate"
-      }
-      post{
-        success {
-          step $class: 'JavadocArchiver', javadocDir: 'target/site/apidocs', keepAll: false
-          publishHTML(target: [reportName: 'Maven Site', reportDir: 'target/site', reportFiles: 'index.html', keepAll: false])
-        }
-      }
-    }
 
-        stage('Analysis') {
+        stage('Reports & Documentation') {
             steps {
-                // Genera reportes de Checkstyle y el sitio de Maven
+                // Usamos 'site' para generar TODA la documentación y reportes 
+                // (incluye Javadoc, Checkstyle, PMD y JaCoCo en HTML/XML)
+                // Saltamos dependency-check para evitar el error 401 que vimos antes
                 sh "mvn -f pom.xml site -Ddependency-check.skip=true"
             }
             post {
                 success {
-                    // Registra los problemas detectados por Checkstyle en la UI de Jenkins
-                    dependencyCheckPublisher pattern: '**/target/site/dependency-check-report.xml'
+                    // 1. Archivar Javadoc (Ruta estándar de Maven Site)
+                    javadoc javadocDir: 'target/site/apidocs', keepAll: false
+                    
+                    // 2. Publicar el sitio completo de Maven
+                    publishHTML(target: [
+                        reportName: 'Maven Site', 
+                        reportDir: 'target/site', 
+                        reportFiles: 'index.html', 
+                        keepAll: false
+                    ])
+
+                    // 3. Adaptador de Cobertura (necesita el XML generado por site)
+                    publishCoverage adapters: [jacocoAdapter('**/target/site/jacoco/jacoco.xml')]
+
+                    // 4. Análisis estático de código
                     recordIssues enabledForFailure: true, tool: checkStyle()
                     recordIssues enabledForFailure: true, tool: pmdParser()
-                    recordIssues enabledForFailure: true, tool: cpd()
-                    recordIssues enabledForFailure: true, tool: findBugs()
                     recordIssues enabledForFailure: true, tool: spotBugs()
                 }
             }
